@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Chat Application</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: blueviolet;
+        }
+
+        header {
+            background-color: #007BFF;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        header .logout {
+            text-decoration: none;
+            color: white;
+            font-size: 16px;
+            background-color: #FF5722;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            background-color: blueviolet;
+            border-right: 1px solid #ddd;
+            padding: 10px;
+            width: 250px;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            padding: 0;
+            border-right: none;
+        }
+
+        .sidebar.collapsed ul,
+        .sidebar.collapsed h3 {
+            display: none;
+        }
+
+        .toggle-sidebar {
+            display: block;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .toggle-sidebar.collapsed {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+
+        .chat-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px;
+            object-fit: fill;
+        }
+
+        #chat-box {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            overflow-y: auto;
+            background-color: blueviolet;
+        }
+
+        #messages {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            
+        }
+
+        #messages li {
+            margin-bottom: 3px;
+        }
+        .heading{
+            margin-left: 25px;
+        }
+        footer {
+            background-color: #007BFF;
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            border-top: 1px solid #ddd;
+        }
+
+        @media screen and (max-width: 992px) {
+            .sidebar {
+                position: absolute;
+                height: 100%;
+                z-index: 1000;
+                background-color: #f8f9fa;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 class="heading">Real-Time Chat Application</h1>
+        <a href="{% url 'logout' %}" class="logout">Logout</a>
+    </header>
+
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <button class="toggle-sidebar" id="toggle-button" onclick="toggleSidebar()">☰</button>
+            <h3>Users</h3>
+            <ul id="user-list">
+                {% for user in users %}
+                    
+                    <li class="user-item" data-user-id="{{ user.id }}">{{ user.username }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="chat-section">
+            <div id="chat-box">
+                <ul id="messages">
+                    {% for message in messages %}
+                      <li>
+                        <strong>{{ message.sender.username }}:</strong> {{ message.content }}
+                      </li>
+                    {% endfor %}
+                  </ul>
+            </div>
+            <div>
+                <input id="message-input" type="text" placeholder="Type a message..." style="width: 80%; height: 30px;">
+                <button id="send-button" style="width: 18%; height: 35px;">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2025 Chat Application. All rights reserved.
+    </footer>
+
+    <script>
+        // Global variable to store the selected user ID
+        let selectedUserId = null;
+
+        // Toggle sidebar visibility
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const toggleButton = document.getElementById('toggle-button');
+            const isCollapsed = sidebar.classList.toggle('collapsed');
+
+            if (isCollapsed) {
+                toggleButton.innerHTML = '→';
+                toggleButton.classList.add('collapsed');
+                createExpandButton();
+            } else {
+                toggleButton.innerHTML = '☰';
+                toggleButton.classList.remove('collapsed');
+                removeExpandButton();
+            }
+        }
+
+        // Create a button to expand the sidebar
+        function createExpandButton() {
+            if (!document.getElementById('expand-button')) {
+                const expandButton = document.createElement('button');
+                expandButton.id = 'expand-button';
+                expandButton.className = 'toggle-sidebar';
+                expandButton.innerHTML = '☰';
+                expandButton.style.position = 'absolute';
+                expandButton.style.top = '10px';
+                expandButton.style.left = '10px';
+                expandButton.onclick = toggleSidebar;
+                document.body.appendChild(expandButton);
+            }
+        }
+
+        // Remove the expand button when sidebar is expanded
+        function removeExpandButton() {
+            const expandButton = document.getElementById('expand-button');
+            if (expandButton) {
+                expandButton.remove();
+            }
+        }
+
+        // Room name for WebSocket connection
+        const roomName = "chat_room"; // Example room name
+
+        // Initialize WebSocket
+        const chatSocket = new WebSocket(
+            `ws://${window.location.host}/ws/chat/${roomName}/`
+        );
+
+        // Listen for incoming messages
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const messages = document.getElementById('messages');
+            const newMessage = document.createElement('li');
+            newMessage.textContent = `${data.sender}: ${data.message}`;
+            messages.appendChild(newMessage);
+        };
+
+        // Handle WebSocket errors and disconnections
+        chatSocket.onclose = function(e) {
+            console.error("WebSocket closed unexpectedly");
+        };
+
+        chatSocket.onerror = function(e) {
+            console.error("WebSocket error:", e);
+        };
+
+        // Handle user selection
+        document.querySelectorAll('.user-item').forEach(item => {
+            item.onclick = function() {
+                selectedUserId = this.dataset.userId; // Update global variable
+                console.log("Selected User ID:", selectedUserId);
+            };
+        });
+
+        // Send message on button click
+        document.getElementById('send-button').onclick = function() {
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value;
+
+            if (!selectedUserId) {
+                alert("Please select a user to chat with.");
+                return;
+            }
+
+            if (chatSocket.readyState === WebSocket.OPEN) {
+                chatSocket.send(JSON.stringify({
+                    'message': message,
+                    'receiver_id': selectedUserId,  // Use selected user ID
+                }));
+                messageInput.value = ''; // Clear the input field
+            } else {
+                alert("WebSocket connection is not open. Please refresh the page.");
+            }
+        };
+        // Adjust page width based on screen size
+        function adjustWidth() {
+            const width = window.innerWidth;
+
+            if (width <= 600) {
+                document.body.style.transform = "scale(0.5)";
+            } else if (width <= 700) {
+                document.body.style.transform = "scale(0.75)";
+            } else if (width <= 767) {
+                document.body.style.transform = "scale(0.8)";
+            } else if (width <= 1600) {
+                document.body.style.transform = "scale(0.9)";
+            } else {
+                document.body.style.transform = "scale(1)";
+            }
+
+            document.body.style.transformOrigin = "top left";
+        }
+
+        // Attach resize listener
+        window.onresize = adjustWidth;
+
+        // Call the function on initial load
+        adjustWidth();
+    </script>
+</body>
+</html>

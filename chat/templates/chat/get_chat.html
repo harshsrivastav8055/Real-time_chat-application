@@ -1,0 +1,60 @@
+<div id="user-list">
+    <ul>
+        {% for user in users %}
+            <li>
+                <button class="user-select" data-user-id="{{ user.id }}">{{ user.username }}</button>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div id="chat-container">
+    <p>Select a user to start chatting.</p>
+</div>
+
+<script>
+    document.querySelectorAll(".user-select").forEach(button => {
+        button.addEventListener("click", function() {
+            const userId = this.dataset.userId;
+
+            // Fetch the chat box dynamically for the selected user
+            fetch(`/chat/${userId}/`)
+                .then(response => response.json())
+                .then(data => {
+                    // Build the chat box dynamically
+                    const chatContainer = document.getElementById("chat-container");
+                    chatContainer.innerHTML = `
+                        <h3>Chat with ${data.selected_user}</h3>
+                        <ul id="messages">
+                            ${data.messages.map(msg => `<li><strong>${msg.sender}:</strong> ${msg.content}</li>`).join('')}
+                        </ul>
+                        <input id="message-input" type="text" placeholder="Type a message...">
+                        <button id="send-button">Send</button>
+                    `;
+
+                    // Set up WebSocket for this chat
+                    const chatSocket = new WebSocket(
+                        `ws://${window.location.host}/ws/chat/${userId}/`
+                    );
+
+                    chatSocket.onmessage = function(e) {
+                        const data = JSON.parse(e.data);
+                        const messages = document.getElementById("messages");
+                        const newMessage = document.createElement("li");
+                        newMessage.innerHTML = `<strong>${data.sender}:</strong> ${data.message}`;
+                        messages.appendChild(newMessage);
+                    };
+
+                    document.getElementById("send-button").onclick = function() {
+                        const messageInput = document.getElementById("message-input");
+                        const message = messageInput.value;
+                        chatSocket.send(JSON.stringify({
+                            'message': message,
+                            'receiver_id': userId
+                        }));
+                        messageInput.value = '';
+                    };
+                });
+        });
+    });
+</script>

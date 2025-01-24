@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat</title>
+</head>
+<style>
+    #chat-history {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+    height: 300px;
+    overflow-y: scroll;
+}
+textarea {
+    width: 100%;
+    height: 50px;
+}
+button {
+    margin-top: 10px;
+}
+</style>
+<body>
+    <h2>Chat with {{ chat.user1 if chat.user2 == user else chat.user2 }}</h2>
+
+    <div id="chat-history">
+        {% for message in messages %}
+            <p><strong>{{ message.sender.username }}</strong>: {{ message.message }}</p>
+        {% endfor %}
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <textarea name="message" placeholder="Type your message here..." required></textarea>
+        <button type="submit">Send</button>
+    </form>
+
+    <a href="{% url 'new_chat' %}">Start New Chat</a>
+</body>
+</html>
